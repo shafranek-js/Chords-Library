@@ -1,49 +1,60 @@
-
 import { useState, useMemo, useEffect } from 'react';
 import { transformChordData } from '../parser';
 import type { ChordFromJSON, DisplayChord, Instrument } from '../types';
 
+const CHORD_URLS: Record<Instrument, string> = {
+    ukulele: 'https://raw.githubusercontent.com/shafranek-js/Chords-Library/refs/heads/main/chords/Common_Ukulele_chords.json',
+    guitar: 'https://raw.githubusercontent.com/shafranek-js/Chords-Library/refs/heads/main/chords/Common_Guitar_chords.json',
+};
+
 export const useChords = (instrument: Instrument) => {
-    const [fetchedChords, setFetchedChords] = useState<DisplayChord[]>([]);
-    const [userChords, setUserChords] = useState<DisplayChord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [fetchedChords, setFetchedChords] = useState<Record<Instrument, DisplayChord[]>>({ ukulele: [], guitar: [] });
+    const [userChords, setUserChords] = useState<Record<Instrument, DisplayChord[]>>({ ukulele: [], guitar: [] });
     const [search, setSearch] = useState('');
 
     useEffect(() => {
-        if (instrument === 'ukulele') {
-            fetch('/Common_Ukulele_chords.json')
-                .then(res => res.json())
-                .then((data: ChordFromJSON[]) => {
-                    const transformed = transformChordData(data, instrument);
-                    setFetchedChords(transformed);
-                })
-                .catch(err => {
-                    console.error(`Failed to load chords for ukulele:`, err);
-                    setFetchedChords([]);
-                });
-        } else if (instrument === 'guitar') {
-            fetch('/Common_Guitar_chords.json')
-                .then(res => {
-                    if (res.ok) {
+        // Fetch all instrument chords on initial load
+        const instruments: Instrument[] = ['ukulele', 'guitar'];
+        Promise.all(
+            instruments.map(inst =>
+                fetch(CHORD_URLS[inst])
+                    .then(res => {
+                        if (!res.ok) {
+                            console.error(`Failed to fetch ${inst} chords: ${res.statusText}`);
+                            return [];
+                        }
                         return res.json();
-                    }
-                    return [];
-                })
-                .then((data: ChordFromJSON[]) => {
-                    const transformed = transformChordData(data, instrument);
-                    setFetchedChords(transformed);
-                })
-                .catch(err => {
-                    console.error(`Failed to load chords for guitar:`, err);
-                    setFetchedChords([]);
-                });
-        }
-        // Reset user chords and search when instrument changes
-        setUserChords([]);
+                    })
+                    .then((data: ChordFromJSON[]) => ({
+                        instrument: inst,
+                        chords: transformChordData(data, inst),
+                    }))
+                    .catch(err => {
+                        console.error(`Error processing ${inst} chords:`, err);
+                        return { instrument: inst, chords: [] };
+                    })
+            )
+        ).then(results => {
+            const allFetchedChords = results.reduce((acc, result) => {
+                acc[result.instrument] = result.chords;
+                return acc;
+            }, {} as Record<Instrument, DisplayChord[]>);
+            setFetchedChords(allFetchedChords);
+            setIsLoading(false);
+        });
+    }, []); // Empty dependency array means this runs only once on mount
+
+    useEffect(() => {
+        // Reset search when instrument changes, but keep the loaded chords
         setSearch('');
     }, [instrument]);
 
     const allChords = useMemo(() => {
-        const combined = [...fetchedChords, ...userChords];
+        const currentFetched = fetchedChords[instrument] || [];
+        const currentUser = userChords[instrument] || [];
+        const combined = [...currentFetched, ...currentUser];
+
         const chordMap = new Map<string, DisplayChord>();
 
         combined.forEach(chord => {
@@ -65,7 +76,7 @@ export const useChords = (instrument: Instrument) => {
         });
 
         return Array.from(chordMap.values()).sort((a,b) => a.name.localeCompare(b.name));
-    }, [fetchedChords, userChords]);
+    }, [instrument, fetchedChords, userChords]);
 
     const filteredChords = useMemo(() => {
         if (!search.trim()) return allChords;
@@ -73,14 +84,16 @@ export const useChords = (instrument: Instrument) => {
         return allChords.filter(chord =>
             chord.name.toLowerCase().startsWith(lowercasedSearch) ||
             chord.aliases.some(alias => alias.toLowerCase().startsWith(lowercasedSearch))
-        ); // sorting is already done in allChords
+        );
     }, [search, allChords]);
     
     const addUserChords = (newChordsData: ChordFromJSON[]) => {
         const transformed = transformChordData(newChordsData, instrument);
-        // We add to existing user chords, the memo will handle merging and deduplication
-        setUserChords(prev => [...prev, ...transformed]);
+        setUserChords(prev => ({
+            ...prev,
+            [instrument]: [...(prev[instrument] || []), ...transformed]
+        }));
     };
 
-    return { chords: allChords, search, setSearch, filteredChords, addUserChords };
+    return { chords: allChords, search, setSearch, filteredChords, addUserChords, isLoading };
 };

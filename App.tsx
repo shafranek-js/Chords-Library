@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 
 import { useChords } from './hooks/useChords';
@@ -24,7 +21,7 @@ const App: React.FC = () => {
     const [isPracticeSetCollapsed, setIsPracticeSetCollapsed] = useState(false);
     const [isLoadUrlModalOpen, setIsLoadUrlModalOpen] = useState(false);
 
-    const { chords, search, setSearch, filteredChords, addUserChords } = useChords(instrument);
+    const { chords, search, setSearch, filteredChords, addUserChords, isLoading } = useChords(instrument);
 
     const {
         practiceSet,
@@ -237,15 +234,21 @@ const App: React.FC = () => {
                     />
                 </div>
             </div>
-            <div className="wrap"> {/* Wrap the rest of the content */}
-                <ChordList
-                    chords={filteredChords}
-                    search={search}
-                    viewMode={viewMode}
-                    onVoicingSelect={handleVoicingSelect}
-                    practiceSet={practiceSet}
-                    instrument={instrument}
-                />
+            <div className="wrap">
+                {isLoading ? (
+                    <div className="panel" style={{ textAlign: 'center', padding: '40px' }}>
+                        <p>Loading all instrument chords...</p>
+                    </div>
+                ) : (
+                    <ChordList
+                        chords={filteredChords}
+                        search={search}
+                        viewMode={viewMode}
+                        onVoicingSelect={handleVoicingSelect}
+                        practiceSet={practiceSet}
+                        instrument={instrument}
+                    />
+                )}
             </div>
             <PracticeSet
                 practiceSet={practiceSet}
