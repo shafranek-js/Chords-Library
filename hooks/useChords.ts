@@ -3,8 +3,8 @@ import { transformChordData } from '../parser';
 import type { ChordFromJSON, DisplayChord, Instrument } from '../types';
 
 const CHORD_URLS: Record<Instrument, string> = {
-    ukulele: 'https://raw.githubusercontent.com/shafranek-js/Chords-Library/refs/heads/main/chords/Common_Ukulele_chords.json',
-    guitar: 'https://raw.githubusercontent.com/shafranek-js/Chords-Library/refs/heads/main/chords/Common_Guitar_chords.json',
+    ukulele: 'https://raw.githubusercontent.com/shafranek-js/filestorage/refs/heads/main/Common_Ukulele_chords.json',
+    guitar: 'https://raw.githubusercontent.com/shafranek-js/filestorage/refs/heads/main/Common_Guitar_chords.json',
 };
 
 export const useChords = (instrument: Instrument) => {
